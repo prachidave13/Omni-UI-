@@ -5,6 +5,8 @@ import { Plus } from "lucide-react";
 interface Task {
   id: string;
   title: string;
+  description?: string;
+  lastUpdated?: string;
 }
 
 interface ProjectPlanProps {
@@ -16,6 +18,9 @@ const defaultTasks: Task[] = [
   {
     id: "OMN-1",
     title: "Create a modern landing page with voice assistant preview",
+    description:
+      "Design and implement a landing page (App.tsx) that introduces OMNI.ai with a preview of the voice assistant interface. Include a hero section showcasing the 3D avatar placeholder, key features, and a clear value proposition for tech professionals. Add a prominent call-to-action for signing up. Use dark theme with glassmorphic elements and floating UI components for a futuristic feel.",
+    lastUpdated: "a minute ago",
   },
   {
     id: "OMN-2",
@@ -38,30 +43,36 @@ const defaultTasks: Task[] = [
   { id: "OMN-8", title: "Add basic task automation and calendar integration" },
 ];
 
+import { Dialog, DialogContent } from "./ui/dialog";
+import { X } from "lucide-react";
+
 const ProjectPlan = ({
   projectName = "Our plan to build OMNI.ai",
   description = "I've generated a plan for us to build OMNI.ai MVP. We haven't gotten started yet. Move a task to In Progress to kick off the project or let me know if you want to adjust the plan!",
 }: ProjectPlanProps) => {
+  const [selectedTask, setSelectedTask] = React.useState<Task | null>(null);
   return (
     <div className="min-h-screen bg-[#0D0D1F] text-white p-8">
-      <div className="max-w-5xl mx-auto">
-        <div className="flex justify-between items-start mb-4">
+      <div className="max-w-6xl mx-auto">
+        {/* Header */}
+        <div className="flex justify-between items-start mb-12">
           <div>
-            <h1 className="text-3xl font-bold mb-2">{projectName}</h1>
-            <p className="text-gray-400">{description}</p>
+            <h1 className="text-4xl font-bold mb-3">{projectName}</h1>
+            <p className="text-gray-400 text-lg">{description}</p>
           </div>
           <Button
             variant="secondary"
-            className="bg-[#1E1E3F] text-purple-400 hover:bg-[#2A2A4F]"
+            className="bg-[#1E1E3F]/50 text-purple-400 hover:bg-[#2A2A4F] px-6"
           >
             Discuss the plan
           </Button>
         </div>
 
-        <div className="mt-12">
-          <div className="flex items-center gap-2 mb-4">
-            <div className="w-2 h-2 rounded-full bg-purple-500"></div>
-            <h2 className="text-lg font-semibold">IN PROGRESS</h2>
+        {/* In Progress Section */}
+        <div className="mb-12">
+          <div className="flex items-center gap-3 mb-6">
+            <div className="w-2.5 h-2.5 rounded-full bg-purple-500"></div>
+            <h2 className="text-xl font-semibold">IN PROGRESS</h2>
             <Button
               variant="ghost"
               size="icon"
@@ -69,13 +80,17 @@ const ProjectPlan = ({
             >
               <Plus className="h-4 w-4" />
             </Button>
+          </div>
+          <div className="space-y-2 pl-5">
+            {/* Tasks will appear here when in progress */}
           </div>
         </div>
 
-        <div className="mt-8">
-          <div className="flex items-center gap-2 mb-4">
-            <div className="w-2 h-2 rounded-full bg-gray-500"></div>
-            <h2 className="text-lg font-semibold">TO DO</h2>
+        {/* To Do Section */}
+        <div className="mb-12">
+          <div className="flex items-center gap-3 mb-6">
+            <div className="w-2.5 h-2.5 rounded-full bg-gray-500"></div>
+            <h2 className="text-xl font-semibold">TO DO</h2>
             <Button
               variant="ghost"
               size="icon"
@@ -84,20 +99,23 @@ const ProjectPlan = ({
               <Plus className="h-4 w-4" />
             </Button>
           </div>
-          <div className="space-y-2">
+          <div className="space-y-3 pl-5">
             {defaultTasks.map((task) => (
               <div
                 key={task.id}
-                className="group flex items-center gap-3 p-4 bg-[#13132B] rounded-lg border border-purple-900/20 hover:border-purple-500/40 transition-colors cursor-pointer"
+                className="group flex items-center gap-4 p-4 bg-[#13132B]/50 rounded-lg border border-purple-900/20 hover:border-purple-500/40 transition-all duration-200 cursor-pointer"
+                onClick={() => setSelectedTask(task)}
               >
-                <div className="text-sm text-purple-400 font-mono">
-                  {task.id}
+                <div className="flex items-center gap-4 flex-1">
+                  <div className="min-w-[70px] text-sm text-purple-400 font-mono bg-purple-500/10 px-2 py-1 rounded">
+                    {task.id}
+                  </div>
+                  <div className="text-gray-300 font-medium">{task.title}</div>
                 </div>
-                <div className="text-gray-200 flex-1">{task.title}</div>
                 <Button
                   variant="secondary"
                   size="sm"
-                  className="opacity-0 group-hover:opacity-100 bg-purple-600 text-white hover:bg-purple-700 transition-opacity"
+                  className="opacity-0 group-hover:opacity-100 bg-purple-600 text-white hover:bg-purple-700 transition-all duration-200"
                 >
                   Start task
                 </Button>
@@ -106,10 +124,11 @@ const ProjectPlan = ({
           </div>
         </div>
 
-        <div className="mt-8">
-          <div className="flex items-center gap-2 mb-4">
-            <div className="w-2 h-2 rounded-full bg-green-500"></div>
-            <h2 className="text-lg font-semibold">DONE (0)</h2>
+        {/* Done Section */}
+        <div className="mb-12">
+          <div className="flex items-center gap-3 mb-6">
+            <div className="w-2.5 h-2.5 rounded-full bg-green-500"></div>
+            <h2 className="text-xl font-semibold">DONE (0)</h2>
             <Button
               variant="ghost"
               size="icon"
@@ -120,53 +139,119 @@ const ProjectPlan = ({
           </div>
         </div>
 
-        <div className="fixed bottom-0 right-0 w-96 p-4">
-          <div className="bg-[#13132B] rounded-lg p-4 border border-purple-900/20">
-            <div className="flex items-center gap-2 mb-2">
-              <div className="w-8 h-8 rounded-full bg-purple-600 flex items-center justify-center text-white font-semibold">
+        {/* Chat Interface */}
+        <div className="fixed bottom-6 right-6 w-[400px]">
+          <div className="bg-[#13132B]/90 backdrop-blur-sm rounded-lg p-4 border border-purple-900/20 shadow-xl">
+            <div className="flex items-center gap-3 mb-3">
+              <div className="w-10 h-10 rounded-full bg-purple-600 flex items-center justify-center text-white font-semibold text-lg">
                 D
               </div>
               <div>
-                <div className="text-sm font-semibold">DATABUTTON</div>
+                <div className="font-semibold">DATABUTTON</div>
                 <div className="text-xs text-gray-400">a few seconds ago</div>
               </div>
             </div>
-            <div className="text-sm text-gray-300 mb-2">
+            <div className="text-sm text-gray-400 mb-2">
               Thought for a moment
             </div>
-            <p className="text-sm text-gray-200 mb-4">
-              Hello Prachi! I'm excited to help you bring OMNI.ai to life! I've
-              created an implementation plan that breaks down your vision into
-              manageable tasks, focusing on delivering a high-quality MVP as
-              efficiently as possible.
-            </p>
-            <p className="text-sm text-gray-200 mb-4">
-              Would you mind taking a look at the task list I've prepared? I
-              suggest we start with{" "}
-              <span className="bg-purple-900/30 text-purple-400 px-1 rounded">
-                OMN-1
-              </span>{" "}
-              to create a modern landing page that showcases your vision. This
-              will give us a strong foundation and something tangible to build
-              upon. The landing page will incorporate your preferred dark theme
-              and futuristic design elements.
-            </p>
-            <p className="text-sm text-gray-200">
-              Would you like me to start working on{" "}
-              <span className="bg-purple-900/30 text-purple-400 px-1 rounded">
-                OMN-1
-              </span>
-              , or would you prefer to discuss the implementation plan first?
-            </p>
+            <div className="space-y-4 text-sm text-gray-300">
+              <p>
+                Hello Prachi! I'm excited to help you bring OMNI.ai to life!
+                I've created an implementation plan that breaks down your vision
+                into manageable tasks, focusing on delivering a high-quality MVP
+                as efficiently as possible.
+              </p>
+              <p>
+                Would you mind taking a look at the task list I've prepared? I
+                suggest we start with{" "}
+                <span className="bg-purple-900/30 text-purple-400 px-1.5 py-0.5 rounded">
+                  OMN-1
+                </span>{" "}
+                to create a modern landing page that showcases your vision. This
+                will give us a strong foundation and something tangible to build
+                upon. The landing page will incorporate your preferred dark
+                theme and futuristic design elements.
+              </p>
+              <p>
+                Would you like me to start working on{" "}
+                <span className="bg-purple-900/30 text-purple-400 px-1.5 py-0.5 rounded">
+                  OMN-1
+                </span>
+                , or would you prefer to discuss the implementation plan first?
+              </p>
+            </div>
             <div className="mt-4">
               <input
                 type="text"
                 placeholder="Ask me a question about #Home..."
-                className="w-full bg-[#0D0D1F] text-white rounded-lg px-4 py-2 text-sm border border-purple-900/20 focus:outline-none focus:border-purple-500"
+                className="w-full bg-[#0D0D1F]/80 text-white rounded-lg px-4 py-2.5 text-sm border border-purple-900/20 focus:outline-none focus:border-purple-500/50 focus:ring-1 focus:ring-purple-500/50 transition-all duration-200"
               />
             </div>
           </div>
         </div>
+
+        {/* Task Details Dialog */}
+        <Dialog
+          open={!!selectedTask}
+          onOpenChange={() => setSelectedTask(null)}
+        >
+          <DialogContent className="bg-[#0D0D1F] border-purple-900/20 p-0 gap-0">
+            <div className="p-6 space-y-6">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <div className="text-sm text-purple-400 font-mono bg-purple-500/10 px-2 py-1 rounded">
+                    {selectedTask?.id}
+                  </div>
+                  <div className="text-xs text-gray-400">
+                    Last updated {selectedTask?.lastUpdated}
+                  </div>
+                </div>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="text-gray-400 hover:text-white"
+                  onClick={() => setSelectedTask(null)}
+                >
+                  <X className="h-4 w-4" />
+                </Button>
+              </div>
+
+              <div className="space-y-4">
+                <h2 className="text-xl font-semibold">Title</h2>
+                <p className="text-gray-300">{selectedTask?.title}</p>
+
+                <h2 className="text-xl font-semibold">Description</h2>
+                <p className="text-gray-300">{selectedTask?.description}</p>
+
+                <h2 className="text-xl font-semibold">Activity</h2>
+                <div className="flex items-center gap-2 text-gray-400 text-sm">
+                  <div className="w-4 h-4 rounded-full border-2 border-gray-600"></div>
+                  No history yet. Agent will document progress and key decisions
+                  here.
+                </div>
+
+                <div className="mt-6">
+                  <textarea
+                    placeholder="Add a comment..."
+                    className="w-full bg-[#13132B] text-white rounded-lg p-4 min-h-[100px] text-sm border border-purple-900/20 focus:outline-none focus:border-purple-500/50 focus:ring-1 focus:ring-purple-500/50 transition-all duration-200"
+                  />
+                </div>
+
+                <div className="flex justify-between items-center pt-4">
+                  <Button
+                    variant="destructive"
+                    className="bg-red-500/10 text-red-400 hover:bg-red-500/20"
+                  >
+                    Delete task
+                  </Button>
+                  <Button className="bg-purple-600 text-white hover:bg-purple-700">
+                    Start task
+                  </Button>
+                </div>
+              </div>
+            </div>
+          </DialogContent>
+        </Dialog>
       </div>
     </div>
   );
