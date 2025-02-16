@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import FileUpload from "@/components/FileUpload";
+import FileUpload from "./FileUpload";
 import Header from "./Header";
 import HeroSection from "./HeroSection";
 import NavigationPills from "./NavigationPills";
