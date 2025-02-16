@@ -1,4 +1,5 @@
 import React, { useState } from "react";
+import FileUpload from "@/components/FileUpload";
 import Header from "./Header";
 import HeroSection from "./HeroSection";
 import NavigationPills from "./NavigationPills";
@@ -79,13 +80,12 @@ const Home = ({ initialStep = 0, showHelpDialog = false }: HomeProps) => {
                     Quotes
                   </span>
                 </div>
-                <div className="border-2 border-dashed border-purple-900/20 rounded-lg p-8 text-center cursor-pointer hover:border-purple-500/40 transition-colors">
-                  <p className="text-purple-400 mb-2">
-                    Click to select file(s)...
-                  </p>
-                  <p className="text-sm text-purple-400/60">OR</p>
-                  <p className="text-purple-400 mt-2">Drag and drop</p>
-                </div>
+                <FileUpload
+                  onUpload={(files) => {
+                    console.log("Files uploaded:", files);
+                    // Handle the uploaded files here
+                  }}
+                />
               </div>
             </div>
           )}
@@ -102,13 +102,13 @@ const Home = ({ initialStep = 0, showHelpDialog = false }: HomeProps) => {
                   <p className="text-sm text-gray-400">
                     Upload screenshots of apps or designs that inspire you
                   </p>
-                  <div className="mt-4 border border-purple-900/20 rounded-lg p-4 text-center cursor-pointer hover:bg-purple-900/10 transition-colors">
-                    <p className="text-purple-400 mb-1">
-                      Click to select file(s)
-                    </p>
-                    <p className="text-xs text-purple-400/60">OR</p>
-                    <p className="text-purple-400 mt-1">Drag and drop</p>
-                  </div>
+                  <FileUpload
+                    className="mt-4"
+                    onUpload={(files) => {
+                      console.log("Inspiration files uploaded:", files);
+                      // Handle the uploaded files here
+                    }}
+                  />
                 </div>
               </div>
             </div>
