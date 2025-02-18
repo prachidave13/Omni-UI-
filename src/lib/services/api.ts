@@ -1,6 +1,6 @@
 import { UserInput, ProcessedTask } from "../types/userInput";
 
-const API_URL = process.env.VITE_API_URL || "http://localhost:8000";
+const API_URL = import.meta.env.VITE_API_URL || "http://localhost:8000";
 
 export const processImage = async (file: File): Promise<string> => {
   const formData = new FormData();
@@ -10,6 +10,10 @@ export const processImage = async (file: File): Promise<string> => {
     method: "POST",
     body: formData,
   });
+
+  if (!response.ok) {
+    throw new Error("Failed to process image");
+  }
 
   const data = await response.json();
   return data.text;
@@ -23,6 +27,10 @@ export const processDocument = async (file: File): Promise<string> => {
     method: "POST",
     body: formData,
   });
+
+  if (!response.ok) {
+    throw new Error("Failed to process document");
+  }
 
   const data = await response.json();
   return data.text;
@@ -38,6 +46,10 @@ export const generateTasks = async (
     },
     body: JSON.stringify(input),
   });
+
+  if (!response.ok) {
+    throw new Error("Failed to generate tasks");
+  }
 
   const data = await response.json();
   return data.tasks;

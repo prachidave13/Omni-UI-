@@ -6,6 +6,12 @@ import NavigationPills from "./NavigationPills";
 import FooterActions from "./FooterActions";
 import ProjectPlan from "./ProjectPlan";
 import { Dialog, DialogContent } from "./ui/dialog";
+import { useUserInputStore } from "@/lib/stores/userInputStore";
+import {
+  processImage,
+  processDocument,
+  generateTasks,
+} from "@/lib/services/api";
 
 interface HomeProps {
   initialStep?: number;
@@ -16,10 +22,54 @@ const Home = ({ initialStep = 0, showHelpDialog = false }: HomeProps) => {
   const [activeStep, setActiveStep] = useState(initialStep);
   const [isHelpOpen, setIsHelpOpen] = useState(showHelpDialog);
   const [showProjectPlan, setShowProjectPlan] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
 
-  const handleContinue = () => {
+  // Get store actions
+  const {
+    userInput,
+    setDescription,
+    setRequirements,
+    setInspiration,
+    setInspirationText,
+    setIntegrations,
+    setTasks,
+  } = useUserInputStore();
+
+  // Handle file uploads for requirements and inspiration
+  const handleFileUpload = async (files: File[]) => {
+    setIsLoading(true);
+    try {
+      const file = files[0];
+      if (activeStep === 1) {
+        // Requirements step
+        const text = await processDocument(file);
+        setRequirements(text, file.type);
+      } else if (activeStep === 2) {
+        // Inspiration step
+        const text = await processImage(file);
+        setInspiration(files);
+        setInspirationText(text);
+      }
+    } catch (error) {
+      console.error("Error processing file:", error);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleContinue = async () => {
     if (activeStep === 3) {
-      setShowProjectPlan(true);
+      // Generate tasks before showing project plan
+      setIsLoading(true);
+      try {
+        const tasks = await generateTasks(userInput);
+        setTasks(tasks);
+        setShowProjectPlan(true);
+      } catch (error) {
+        console.error("Error generating tasks:", error);
+      } finally {
+        setIsLoading(false);
+      }
     } else if (activeStep < 3) {
       setActiveStep(activeStep + 1);
     }
@@ -57,6 +107,8 @@ const Home = ({ initialStep = 0, showHelpDialog = false }: HomeProps) => {
               <textarea
                 className="flex-1 bg-[#1A1A2E] text-white border border-purple-900/20 rounded-lg p-4 resize-none focus:outline-none focus:ring-2 focus:ring-purple-500"
                 placeholder="Enter your app description here..."
+                value={userInput.description}
+                onChange={(e) => setDescription(e.target.value)}
               />
             </div>
           )}
@@ -81,10 +133,8 @@ const Home = ({ initialStep = 0, showHelpDialog = false }: HomeProps) => {
                   </span>
                 </div>
                 <FileUpload
-                  onUpload={(files) => {
-                    console.log("Files uploaded:", files);
-                    // Handle the uploaded files here
-                  }}
+                  onUpload={handleFileUpload}
+                  allowedTypes={["requirements"]}
                 />
               </div>
             </div>
@@ -104,10 +154,8 @@ const Home = ({ initialStep = 0, showHelpDialog = false }: HomeProps) => {
                   </p>
                   <FileUpload
                     className="mt-4"
-                    onUpload={(files) => {
-                      console.log("Inspiration files uploaded:", files);
-                      // Handle the uploaded files here
-                    }}
+                    onUpload={handleFileUpload}
+                    allowedTypes={["inspiration"]}
                   />
                 </div>
               </div>
@@ -230,7 +278,7 @@ const Home = ({ initialStep = 0, showHelpDialog = false }: HomeProps) => {
       <FooterActions
         onHelp={handleHelp}
         onContinue={handleContinue}
-        isLoading={false}
+        isLoading={isLoading}
       />
 
       <Dialog open={isHelpOpen} onOpenChange={setIsHelpOpen}>
