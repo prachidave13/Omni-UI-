@@ -1,7 +1,16 @@
 ## Commands to Run
 
-To install dependencies:
+# Setup Instructions
 
+### 1. Start the Backend:
+Navigate to the `backend` directory and run the following command:
+```bash
+cd backend
+uvicorn app:app --reload
+```
+
+### 2. Start the Frontend:
+In a new terminal window, run the following command in the project root:
 ```bash
 yarn
 ```
@@ -9,6 +18,8 @@ yarn
 ```bash
 yarn dev
 ```
+
+This will start the frontend at http://localhost:3000.
 
 # Project Flow
 
