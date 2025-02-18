@@ -39,16 +39,28 @@ export const processDocument = async (file: File): Promise<string> => {
 export const generateTasks = async (
   input: UserInput,
 ): Promise<ProcessedTask[]> => {
+  // Transform frontend state to match backend expectations
+  const formattedInput = {
+    description: input.description,
+    requirements: input.requirements.content, // Convert object to string
+    inspiration_text: input.inspiration.processedText || "", // Convert optional field
+    integrations: input.integrations || [],
+  };
+
+  console.log("Formatted request:", formattedInput); // Debugging
+
   const response = await fetch(`${API_URL}/generate-tasks`, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
     },
-    body: JSON.stringify(input),
+    body: JSON.stringify(formattedInput), // Use formatted input
   });
 
   if (!response.ok) {
-    throw new Error("Failed to generate tasks");
+    const errorText = await response.text();
+    console.error("Error response from server:", errorText);
+    throw new Error(`Failed to generate tasks: ${errorText}`);
   }
 
   const data = await response.json();

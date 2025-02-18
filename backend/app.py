@@ -1,21 +1,36 @@
-from fastapi import FastAPI, UploadFile, File
+from fastapi import FastAPI, UploadFile, File, HTTPException
+from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from typing import List, Optional
 import ollama
-import asyncio
+from ollama import chat, ChatResponse
 from PIL import Image
 import io
 import docx
 import PyPDF2
+import base64
+import logging
+logging.basicConfig(level=logging.DEBUG)
+logger = logging.getLogger(__name__)
+import re
+
 
 app = FastAPI()
 
-# Models for request/response
+# Add CORS middleware
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
 class UserInput(BaseModel):
     description: str
     requirements: str
-    inspiration_text: Optional[str]
-    integrations: List[str]
+    inspiration_text: Optional[str] = None
+    integrations: List[str] = []
 
 class Task(BaseModel):
     id: str
@@ -23,103 +38,123 @@ class Task(BaseModel):
     description: str
     order: int
 
-# Function to process images using Llama 3.2 Vision
 async def process_image(image: UploadFile) -> str:
     '''
     Process image using Llama 3.2 Vision model via Ollama
     Returns text description of the image
     '''
     try:
-        # Read image file
         contents = await image.read()
-        image = Image.open(io.BytesIO(contents))
+        # Convert image to base64
+        base64_image = base64.b64encode(contents).decode('utf-8')
         
-        # Call Llama Vision model
-        response = ollama.generate('llama2-vision',
-                                 prompt='Describe this image in detail',
-                                 images=[image])
+        # Create chat message with image
+        messages = [
+            {
+                'role': 'user',
+                'content': 'Describe this image in detail',
+                'images': [base64_image]
+            }
+        ]
         
-        return response['response']
+        # Call Llama Vision model using chat API
+        response: ChatResponse = chat(
+            model='llama2-vision',
+            messages=messages
+        )
+        
+        return response['message']['content']
     except Exception as e:
-        print(f"Error processing image: {e}")
-        return ""
+        print(f"Error processing image: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Error processing image: {str(e)}")
 
-# Function to read document files
-def read_document(file: UploadFile) -> str:
+async def read_document(file: UploadFile) -> str:
     '''
     Read content from various document formats
-    Supports: txt, pdf, doc, docx
     '''
-    content = ""
     try:
+        contents = await file.read()
+        file_obj = io.BytesIO(contents)
+        
         if file.filename.endswith('.txt'):
-            content = file.file.read().decode()
+            return contents.decode()
         elif file.filename.endswith('.pdf'):
-            pdf_reader = PyPDF2.PdfReader(file.file)
-            content = ' '.join([page.extract_text() for page in pdf_reader.pages])
+            pdf_reader = PyPDF2.PdfReader(file_obj)
+            return ' '.join([page.extract_text() for page in pdf_reader.pages])
         elif file.filename.endswith('.docx'):
-            doc = docx.Document(file.file)
-            content = ' '.join([paragraph.text for paragraph in doc.paragraphs])
-        return content
+            doc = docx.Document(file_obj)
+            return ' '.join([paragraph.text for paragraph in doc.paragraphs])
+        else:
+            raise HTTPException(status_code=400, detail="Unsupported file format")
     except Exception as e:
-        print(f"Error reading document: {e}")
-        return ""
+        print(f"Error reading document: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Error reading document: {str(e)}")
 
-# Function to generate tasks using Deepseek
-def generate_tasks(user_input: UserInput) -> List[Task]:
-    '''
-    Generate tasks using Deepseek model via Ollama
-    Returns list of tasks to complete the project
-    '''
+async def generate_tasks(user_input: UserInput) -> List[Task]:
     try:
-        # Construct prompt
         prompt = f"""
-        Based on the following project requirements, create a detailed task list:
-        
-        Description: {user_input.description}
-        
-        Requirements: {user_input.requirements}
-        
-        Visual Inspiration: {user_input.inspiration_text}
-        
-        Integrations Needed: {', '.join(user_input.integrations)}
-        
-        Create a numbered list of specific, actionable tasks that need to be completed.
-        Each task should be clear and self-contained.
-        """
+        You are an AI task planner. Given the project details below, generate a structured task list.
 
-        # Call Deepseek model
-        response = ollama.generate('deepseek:1.5b', prompt=prompt)
+        ### Project Details
+        **Description:** {user_input.description}
+        **Requirements:** {user_input.requirements}
+
+        ### Task Format
+        Generate a numbered list of clear, actionable tasks. Each task should be in this format:
+        1. **Task Title**: Short, action-oriented title (e.g., "Design Calculator UI")
+           **Description**: 1-2 sentences explaining the task.
         
-        # Parse response into tasks
-        # This is a simple implementation - you might want to add more sophisticated parsing
-        tasks = []
-        for i, line in enumerate(response['response'].split('\n')):
-            if line.strip():
-                tasks.append(Task(
-                    id=f"TASK-{i+1}",
-                    title=line.strip(),
-                    description=line.strip(),
-                    order=i
-                ))
+        Avoid unnecessary commentary or self-reflection. Do not add `<think>` or justification.
+        """
+        
+        response: ChatResponse = chat(
+            model='deepseek-r1:1.5b',
+            messages=[{
+                'role': 'user',
+                'content': prompt
+            }]
+        )
+        
+        response_text = response['message']['content']
+        
+        # Extract tasks using regex (handles numbered lists)
+        task_pattern = re.findall(r"\d+\.\s+\*\*(.*?)\*\*\:\s*(.*)", response_text)
+
+        tasks = [
+            Task(
+                id=f"TASK-{i+1}",
+                title=title.strip(),
+                description=desc.strip(),
+                order=i
+            ) 
+            for i, (title, desc) in enumerate(task_pattern)
+        ]
         
         return tasks
     except Exception as e:
-        print(f"Error generating tasks: {e}")
-        return []
-
-# API Endpoints
+        print(f"Error generating tasks: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Error generating tasks: {str(e)}")
+        
 @app.post("/process-image")
 async def process_image_endpoint(file: UploadFile = File(...)):
+    if not file.content_type.startswith('image/'):
+        raise HTTPException(status_code=400, detail="File must be an image")
     text = await process_image(file)
     return {"text": text}
 
 @app.post("/process-document")
 async def process_document_endpoint(file: UploadFile = File(...)):
-    text = read_document(file)
+    if not any(file.filename.endswith(ext) for ext in ['.txt', '.pdf', '.docx']):
+        raise HTTPException(status_code=400, detail="Unsupported file format")
+    text = await read_document(file)
     return {"text": text}
 
 @app.post("/generate-tasks")
 async def generate_tasks_endpoint(user_input: UserInput):
-    tasks = generate_tasks(user_input)
+    logger.debug(f"Received user input: {user_input.dict()}")
+    tasks = await generate_tasks(user_input)
+    # Log the generated tasks
+    logger.debug(f"Generated tasks: {tasks}")
+    # print(tasks)
     return {"tasks": tasks}
+

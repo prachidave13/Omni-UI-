@@ -2,6 +2,13 @@ import { create } from "zustand";
 import { persist, createJSONStorage } from "zustand/middleware";
 import { UserInput, ProcessedTask } from "../types/userInput";
 
+interface InspirationImage {
+  name: string;
+  type: string;
+  size: number;
+  lastModified: number;
+}
+
 interface UserInputStore {
   userInput: UserInput;
   tasks: ProcessedTask[];
@@ -14,7 +21,7 @@ interface UserInputStore {
   reset: () => void;
 }
 
-const initialState = {
+const initialState: UserInputStore = {
   userInput: {
     description: "",
     requirements: {
@@ -22,7 +29,7 @@ const initialState = {
       fileType: undefined,
     },
     inspiration: {
-      images: [],
+      images: [], // Ensuring this is an array of { name, type, size, lastModified }
       processedText: undefined,
     },
     integrations: [],
@@ -45,7 +52,7 @@ export const useUserInputStore = create(
             requirements: { content, fileType },
           },
         })),
-      setInspiration: (images) =>
+      setInspiration: (images: File[]) =>
         set((state) => ({
           userInput: {
             ...state.userInput,
@@ -56,7 +63,7 @@ export const useUserInputStore = create(
                 type: file.type,
                 size: file.size,
                 lastModified: file.lastModified,
-              })),
+              })) as InspirationImage[], // Explicitly casting
             },
           },
         })),
@@ -82,11 +89,11 @@ export const useUserInputStore = create(
           ...state.userInput,
           inspiration: {
             ...state.userInput.inspiration,
-            images: state.userInput.inspiration.images.map((img) => ({
-              name: img.name,
-              type: img.type,
-              size: img.size,
-              lastModified: img.lastModified,
+            images: state.userInput.inspiration.images.map(({ name, type, size, lastModified }) => ({
+              name,
+              type,
+              size,
+              lastModified,
             })),
           },
         },
