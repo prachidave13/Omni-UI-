@@ -6,6 +6,8 @@
 Navigate to the `backend` directory and run the following command:
 ```bash
 cd backend
+```
+```bash
 uvicorn app:app --reload
 ```
 
