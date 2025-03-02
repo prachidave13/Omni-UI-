@@ -55,17 +55,9 @@ const Home = ({ initialStep = 0, showHelpDialog = false }: HomeProps) => {
 
   const handleContinue = async () => {
     if (activeStep === 3) {
-      // Generate tasks before showing project plan
-      setIsLoading(true);
-      try {
-        const tasks = await generateTasks(userInput);
-        setTasks(tasks);
-        setShowProjectPlan(true);
-      } catch (error) {
-        console.error("Error generating tasks:", error);
-      } finally {
-        setIsLoading(false);
-      }
+      // Save the current state and redirect to website builder
+      localStorage.setItem("lastDescription", userInput.description);
+      window.location.href = "/website-builder";
     } else {
       setActiveStep((prev) => prev + 1);
     }
