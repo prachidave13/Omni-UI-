@@ -8,9 +8,14 @@ import {
   FolderOpen,
   FileText,
   Folder,
+  AlertCircle,
 } from "lucide-react";
 import { Button } from "./ui/button";
 import { generateWebsiteFiles, GeneratedFile } from "@/lib/services/llm";
+import {
+  modifyReactCode,
+  CodeModificationResult,
+} from "@/lib/services/codeModification";
 import { useUserInputStore } from "@/lib/stores/userInputStore";
 
 interface WebsiteBuilderProps {
@@ -38,6 +43,9 @@ const WebsiteBuilder = ({
   } | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [prompt, setPrompt] = useState<string>("");
+  const [isModifying, setIsModifying] = useState<boolean>(false);
+  const [modificationResult, setModificationResult] =
+    useState<CodeModificationResult | null>(null);
   const [currentStepIndex, setCurrentStepIndex] = useState<number>(0);
   const stepTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
@@ -648,54 +656,152 @@ const WebsiteBuilder = ({
               value={prompt}
               onChange={(e) => setPrompt(e.target.value)}
               placeholder="Example: Add a dark mode toggle, Create a contact form, Add a navigation menu..."
+              disabled={isModifying}
               className="flex-1 bg-gray-800 text-white rounded-md px-4 py-2 border border-gray-700 focus:outline-none focus:border-purple-500"
               onKeyDown={(e) => {
                 if (e.key === "Enter" && !e.shiftKey) {
                   e.preventDefault();
-                  // Handle prompt submission
-                  if (prompt.trim()) {
-                    // Show a toast notification instead of alert
-                    const toast = document.createElement("div");
-                    toast.className =
-                      "fixed top-4 right-4 bg-purple-600 text-white p-4 rounded-md shadow-lg z-50";
-                    toast.innerHTML = `<p>Feature coming soon: "${prompt}"</p><p class="text-xs mt-2">This feature is currently in development.</p>`;
-                    document.body.appendChild(toast);
-                    setTimeout(() => {
-                      toast.style.opacity = "0";
-                      toast.style.transition = "opacity 0.5s";
-                      setTimeout(() => toast.remove(), 500);
-                    }, 3000);
-                    setPrompt("");
+                  // Trigger the same action as the button click
+                  if (prompt.trim() && !isModifying) {
+                    document.querySelector("button.bg-purple-600")?.click();
                   }
                 }
               }}
             />
             <Button
-              onClick={() => {
-                if (prompt.trim()) {
-                  // Show a toast notification instead of alert
-                  const toast = document.createElement("div");
-                  toast.className =
-                    "fixed top-4 right-4 bg-purple-600 text-white p-4 rounded-md shadow-lg z-50";
-                  toast.innerHTML = `<p>Feature coming soon: "${prompt}"</p><p class="text-xs mt-2">This feature is currently in development.</p>`;
-                  document.body.appendChild(toast);
-                  setTimeout(() => {
-                    toast.style.opacity = "0";
-                    toast.style.transition = "opacity 0.5s";
-                    setTimeout(() => toast.remove(), 500);
-                  }, 3000);
-                  setPrompt("");
+              onClick={async () => {
+                if (prompt.trim() && !isModifying) {
+                  setIsModifying(true);
+
+                  // Show processing toast
+                  const processingToast = document.createElement("div");
+                  processingToast.className =
+                    "fixed top-4 right-4 bg-blue-600 text-white p-4 rounded-md shadow-lg z-50";
+                  processingToast.innerHTML = `<p>Processing: "${prompt}"</p><p class="text-xs mt-2">Analyzing code and making changes...</p>`;
+                  document.body.appendChild(processingToast);
+
+                  try {
+                    // Call the code modification service
+                    const result = await modifyReactCode(prompt, files);
+                    setModificationResult(result);
+
+                    // Apply the changes to the files
+                    if (
+                      result.modifiedFiles &&
+                      result.modifiedFiles.length > 0
+                    ) {
+                      const updatedFiles = [...files];
+
+                      // Update existing files
+                      result.modifiedFiles.forEach((modifiedFile) => {
+                        const existingFileIndex = updatedFiles.findIndex(
+                          (f) => f.name === modifiedFile.name,
+                        );
+
+                        if (existingFileIndex >= 0) {
+                          // Update existing file
+                          updatedFiles[existingFileIndex] = {
+                            ...updatedFiles[existingFileIndex],
+                            content: modifiedFile.content,
+                          };
+                        } else {
+                          // Add new file
+                          updatedFiles.push({
+                            id: Math.max(...files.map((f) => f.id)) + 1,
+                            name: modifiedFile.name,
+                            content: modifiedFile.content,
+                            isFolder: false,
+                          });
+                        }
+                      });
+
+                      setFiles(updatedFiles);
+
+                      // Show success toast
+                      processingToast.remove();
+                      const successToast = document.createElement("div");
+                      successToast.className =
+                        "fixed top-4 right-4 bg-green-600 text-white p-4 rounded-md shadow-lg z-50";
+                      successToast.innerHTML = `<p>Changes applied successfully!</p><p class="text-xs mt-2">${result.explanation}</p>`;
+                      document.body.appendChild(successToast);
+                      setTimeout(() => {
+                        successToast.style.opacity = "0";
+                        successToast.style.transition = "opacity 0.5s";
+                        setTimeout(() => successToast.remove(), 500);
+                      }, 5000);
+                    } else {
+                      // Show no changes toast
+                      processingToast.remove();
+                      const noChangesToast = document.createElement("div");
+                      noChangesToast.className =
+                        "fixed top-4 right-4 bg-yellow-600 text-white p-4 rounded-md shadow-lg z-50";
+                      noChangesToast.innerHTML = `<p>No changes were needed</p><p class="text-xs mt-2">${result.explanation}</p>`;
+                      document.body.appendChild(noChangesToast);
+                      setTimeout(() => {
+                        noChangesToast.style.opacity = "0";
+                        noChangesToast.style.transition = "opacity 0.5s";
+                        setTimeout(() => noChangesToast.remove(), 500);
+                      }, 5000);
+                    }
+                  } catch (error) {
+                    // Show error toast
+                    processingToast.remove();
+                    const errorToast = document.createElement("div");
+                    errorToast.className =
+                      "fixed top-4 right-4 bg-red-600 text-white p-4 rounded-md shadow-lg z-50";
+                    errorToast.innerHTML = `<p>Error modifying code</p><p class="text-xs mt-2">${error.message || "Unknown error occurred"}</p>`;
+                    document.body.appendChild(errorToast);
+                    setTimeout(() => {
+                      errorToast.style.opacity = "0";
+                      errorToast.style.transition = "opacity 0.5s";
+                      setTimeout(() => errorToast.remove(), 500);
+                    }, 5000);
+                  } finally {
+                    setIsModifying(false);
+                    setPrompt("");
+                  }
                 }
               }}
               className="bg-purple-600 hover:bg-purple-700"
+              disabled={isModifying}
             >
-              <Send className="h-4 w-4" />
+              {isModifying ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                <Send className="h-4 w-4" />
+              )}
             </Button>
           </div>
           <p className="text-xs text-gray-400 mt-2 text-center">
             Enter instructions to modify your React project. The AI will update
             the code accordingly.
           </p>
+
+          {modificationResult && (
+            <div className="mt-4 p-3 bg-gray-800/50 rounded-md border border-purple-900/30">
+              <div className="flex items-start gap-2">
+                <AlertCircle className="h-5 w-5 text-purple-400 mt-0.5" />
+                <div>
+                  <h4 className="text-sm font-medium text-purple-300">
+                    Last Modification Result
+                  </h4>
+                  <p className="text-xs text-gray-400 mt-1">
+                    {modificationResult.explanation}
+                  </p>
+                  {modificationResult.modifiedFiles.length > 0 && (
+                    <div className="mt-2">
+                      <p className="text-xs text-purple-300">Modified files:</p>
+                      <ul className="text-xs text-gray-400 mt-1 list-disc list-inside">
+                        {modificationResult.modifiedFiles.map((file, index) => (
+                          <li key={index}>{file.name}</li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
+          )}
         </div>
       </div>
     </div>
