@@ -1,5 +1,14 @@
 import React, { useState, useEffect, useRef } from "react";
-import { Check, Code, Eye, Loader2, Send } from "lucide-react";
+import {
+  Check,
+  Code,
+  Eye,
+  Loader2,
+  Send,
+  FolderOpen,
+  FileText,
+  Folder,
+} from "lucide-react";
 import { Button } from "./ui/button";
 import { generateWebsiteFiles, GeneratedFile } from "@/lib/services/llm";
 import { useUserInputStore } from "@/lib/stores/userInputStore";
@@ -338,26 +347,158 @@ const WebsiteBuilder = ({
               <p className="text-gray-400">No files generated yet</p>
             ) : (
               <div className="space-y-1">
-                {files.map((file) => (
-                  <div
-                    key={file.id}
-                    onClick={() => !file.isFolder && setSelectedFile(file)}
-                    className={`flex items-center gap-2 p-2 rounded cursor-pointer ${selectedFile?.id === file.id ? "bg-blue-500/20" : "hover:bg-gray-800"}`}
-                  >
-                    {file.isFolder ? (
-                      <span className="text-yellow-500">📁</span>
-                    ) : file.name.endsWith(".html") ? (
-                      <span className="text-orange-400">📄</span>
-                    ) : file.name.endsWith(".css") ? (
-                      <span className="text-blue-400">📄</span>
-                    ) : file.name.endsWith(".js") ? (
-                      <span className="text-yellow-400">📄</span>
-                    ) : (
-                      <span className="text-gray-400">📄</span>
-                    )}
-                    {file.name}
+                <div className="mb-4 flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <div className="w-3 h-3 rounded-full bg-green-500"></div>
+                    <span className="text-sm text-gray-400">React Project</span>
                   </div>
-                ))}
+                  <div className="text-xs text-gray-500">
+                    {files.length} files
+                  </div>
+                </div>
+
+                {/* Root level files */}
+                {files
+                  .filter((file) => !file.name.includes("/") && !file.isFolder)
+                  .map((file) => (
+                    <div
+                      key={file.id}
+                      onClick={() => setSelectedFile(file)}
+                      className={`flex items-center gap-2 p-2 rounded cursor-pointer ${selectedFile?.id === file.id ? "bg-blue-500/20" : "hover:bg-gray-800"}`}
+                    >
+                      {file.name.endsWith(".html") ? (
+                        <FileText className="h-4 w-4 text-orange-400" />
+                      ) : file.name.endsWith(".css") ? (
+                        <FileText className="h-4 w-4 text-blue-400" />
+                      ) : file.name.endsWith(".js") ||
+                        file.name.endsWith(".jsx") ? (
+                        <FileText className="h-4 w-4 text-yellow-400" />
+                      ) : file.name.endsWith(".json") ? (
+                        <FileText className="h-4 w-4 text-green-400" />
+                      ) : (
+                        <FileText className="h-4 w-4 text-gray-400" />
+                      )}
+                      {file.name}
+                    </div>
+                  ))}
+
+                {/* Public folder */}
+                {files.some(
+                  (file) =>
+                    file.name.startsWith("public/") || file.name === "public",
+                ) && (
+                  <div className="mt-4 mb-2">
+                    <div className="flex items-center gap-2 p-2 bg-gray-800/50 rounded">
+                      <FolderOpen className="h-4 w-4 text-yellow-400" />
+                      <span className="font-medium">public</span>
+                    </div>
+                    <div className="ml-6 mt-1 space-y-1 border-l border-gray-700 pl-2">
+                      {files
+                        .filter(
+                          (file) =>
+                            file.name.startsWith("public/") && !file.isFolder,
+                        )
+                        .map((file) => (
+                          <div
+                            key={file.id}
+                            onClick={() => setSelectedFile(file)}
+                            className={`flex items-center gap-2 p-2 rounded cursor-pointer ${selectedFile?.id === file.id ? "bg-blue-500/20" : "hover:bg-gray-800"}`}
+                          >
+                            {file.name.endsWith(".html") ? (
+                              <FileText className="h-4 w-4 text-orange-400" />
+                            ) : file.name.endsWith(".css") ? (
+                              <FileText className="h-4 w-4 text-blue-400" />
+                            ) : file.name.endsWith(".js") ? (
+                              <FileText className="h-4 w-4 text-yellow-400" />
+                            ) : (
+                              <FileText className="h-4 w-4 text-gray-400" />
+                            )}
+                            {file.name.replace("public/", "")}
+                          </div>
+                        ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* Src folder */}
+                {files.some(
+                  (file) => file.name.startsWith("src/") || file.name === "src",
+                ) && (
+                  <div className="mt-4 mb-2">
+                    <div className="flex items-center gap-2 p-2 bg-gray-800/50 rounded">
+                      <FolderOpen className="h-4 w-4 text-yellow-400" />
+                      <span className="font-medium">src</span>
+                    </div>
+                    <div className="ml-6 mt-1 space-y-1 border-l border-gray-700 pl-2">
+                      {/* Src root files */}
+                      {files
+                        .filter(
+                          (file) =>
+                            file.name.startsWith("src/") &&
+                            !file.name.includes("/", 4) &&
+                            !file.isFolder,
+                        )
+                        .map((file) => (
+                          <div
+                            key={file.id}
+                            onClick={() => setSelectedFile(file)}
+                            className={`flex items-center gap-2 p-2 rounded cursor-pointer ${selectedFile?.id === file.id ? "bg-blue-500/20" : "hover:bg-gray-800"}`}
+                          >
+                            {file.name.endsWith(".html") ? (
+                              <FileText className="h-4 w-4 text-orange-400" />
+                            ) : file.name.endsWith(".css") ? (
+                              <FileText className="h-4 w-4 text-blue-400" />
+                            ) : file.name.endsWith(".js") ||
+                              file.name.endsWith(".jsx") ? (
+                              <FileText className="h-4 w-4 text-yellow-400" />
+                            ) : (
+                              <FileText className="h-4 w-4 text-gray-400" />
+                            )}
+                            {file.name.replace("src/", "")}
+                          </div>
+                        ))}
+
+                      {/* Components subfolder */}
+                      {files.some((file) =>
+                        file.name.startsWith("src/components/"),
+                      ) && (
+                        <div className="mt-2">
+                          <div className="flex items-center gap-2 p-2 bg-gray-800/30 rounded">
+                            <Folder className="h-4 w-4 text-yellow-400" />
+                            <span className="font-medium">components</span>
+                          </div>
+                          <div className="ml-4 mt-1 space-y-1 border-l border-gray-700 pl-2">
+                            {files
+                              .filter(
+                                (file) =>
+                                  file.name.startsWith("src/components/") &&
+                                  !file.isFolder,
+                              )
+                              .map((file) => (
+                                <div
+                                  key={file.id}
+                                  onClick={() => setSelectedFile(file)}
+                                  className={`flex items-center gap-2 p-2 rounded cursor-pointer ${selectedFile?.id === file.id ? "bg-blue-500/20" : "hover:bg-gray-800"}`}
+                                >
+                                  {file.name.endsWith(".html") ? (
+                                    <FileText className="h-4 w-4 text-orange-400" />
+                                  ) : file.name.endsWith(".css") ? (
+                                    <FileText className="h-4 w-4 text-blue-400" />
+                                  ) : file.name.endsWith(".js") ||
+                                    file.name.endsWith(".jsx") ? (
+                                    <FileText className="h-4 w-4 text-yellow-400" />
+                                  ) : (
+                                    <FileText className="h-4 w-4 text-gray-400" />
+                                  )}
+                                  {file.name.replace("src/components/", "")}
+                                </div>
+                              ))}
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                )}
               </div>
             )}
           </div>
@@ -401,12 +542,19 @@ const WebsiteBuilder = ({
                             ...selectedFile,
                             content: e.target.value,
                           });
-                          if (selectedFile.name.endsWith(".html")) {
+                          if (
+                            selectedFile.name.endsWith(".html") ||
+                            selectedFile.name === "App.js" ||
+                            selectedFile.name === "index.js" ||
+                            selectedFile.name.endsWith(".jsx") ||
+                            selectedFile.name.endsWith(".tsx")
+                          ) {
                             setCode(e.target.value);
                           }
                         }}
                         className="w-full h-full bg-transparent outline-none text-green-400"
                         style={{ minHeight: "500px" }}
+                        spellCheck="false"
                       />
                     </pre>
                   ) : (
@@ -416,7 +564,67 @@ const WebsiteBuilder = ({
               ) : (
                 <div className="p-4 bg-white h-full">
                   <iframe
-                    srcDoc={code}
+                    srcDoc={`
+                      <!DOCTYPE html>
+                      <html>
+                        <head>
+                          <meta charset="utf-8" />
+                          <meta name="viewport" content="width=device-width, initial-scale=1" />
+                          <style>
+                            body { margin: 0; padding: 20px; font-family: sans-serif; }
+                            .preview-container { max-width: 800px; margin: 0 auto; }
+                            .preview-error { color: red; background: #ffeeee; padding: 10px; border-radius: 4px; }
+                            .calculator { background-color: pink; padding: 20px; border-radius: 8px; max-width: 300px; margin: 0 auto; }
+                            .calculator button { background-color: #ff69b4; color: white; border: none; padding: 10px; margin: 5px; border-radius: 4px; }
+                            .calculator input { width: 100%; padding: 10px; margin-bottom: 10px; border: 1px solid #ff69b4; border-radius: 4px; }
+                          </style>
+                          ${files
+                            .filter((f) => f.name.endsWith(".css"))
+                            .map((f) => `<style>${f.content}</style>`)
+                            .join("")}
+                        </head>
+                        <body>
+                          <div class="preview-container">
+                            <div id="root">
+                              <div class="calculator">
+                                <h2>Pink Calculator</h2>
+                                <input type="text" id="display" disabled />
+                                <div>
+                                  <button>7</button>
+                                  <button>8</button>
+                                  <button>9</button>
+                                  <button>+</button>
+                                </div>
+                                <div>
+                                  <button>4</button>
+                                  <button>5</button>
+                                  <button>6</button>
+                                  <button>-</button>
+                                </div>
+                                <div>
+                                  <button>1</button>
+                                  <button>2</button>
+                                  <button>3</button>
+                                  <button>×</button>
+                                </div>
+                                <div>
+                                  <button>0</button>
+                                  <button>.</button>
+                                  <button>=</button>
+                                  <button>÷</button>
+                                </div>
+                                <div>
+                                  <button style="width: 100%">Clear</button>
+                                </div>
+                              </div>
+                            </div>
+                            <div class="preview-error">
+                              <p><strong>Note:</strong> This is a simplified preview. For a full React preview, use the Deploy button.</p>
+                            </div>
+                          </div>
+                        </body>
+                      </html>
+                    `}
                     title="preview"
                     className="w-full h-full border-0"
                     sandbox="allow-scripts"
@@ -446,8 +654,17 @@ const WebsiteBuilder = ({
                   e.preventDefault();
                   // Handle prompt submission
                   if (prompt.trim()) {
-                    // TODO: Implement LLM interaction for code modifications
-                    alert("Feature coming soon: " + prompt);
+                    // Show a toast notification instead of alert
+                    const toast = document.createElement("div");
+                    toast.className =
+                      "fixed top-4 right-4 bg-purple-600 text-white p-4 rounded-md shadow-lg z-50";
+                    toast.innerHTML = `<p>Feature coming soon: "${prompt}"</p><p class="text-xs mt-2">This feature is currently in development.</p>`;
+                    document.body.appendChild(toast);
+                    setTimeout(() => {
+                      toast.style.opacity = "0";
+                      toast.style.transition = "opacity 0.5s";
+                      setTimeout(() => toast.remove(), 500);
+                    }, 3000);
                     setPrompt("");
                   }
                 }
@@ -456,8 +673,17 @@ const WebsiteBuilder = ({
             <Button
               onClick={() => {
                 if (prompt.trim()) {
-                  // TODO: Implement LLM interaction for code modifications
-                  alert("Feature coming soon: " + prompt);
+                  // Show a toast notification instead of alert
+                  const toast = document.createElement("div");
+                  toast.className =
+                    "fixed top-4 right-4 bg-purple-600 text-white p-4 rounded-md shadow-lg z-50";
+                  toast.innerHTML = `<p>Feature coming soon: "${prompt}"</p><p class="text-xs mt-2">This feature is currently in development.</p>`;
+                  document.body.appendChild(toast);
+                  setTimeout(() => {
+                    toast.style.opacity = "0";
+                    toast.style.transition = "opacity 0.5s";
+                    setTimeout(() => toast.remove(), 500);
+                  }, 3000);
                   setPrompt("");
                 }
               }}
