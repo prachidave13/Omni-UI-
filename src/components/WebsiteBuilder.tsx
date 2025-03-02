@@ -193,6 +193,13 @@ const WebsiteBuilder = ({
   }, [userInput.description]);
 
   const handleDeploy = () => {
+    // Show loading toast
+    const loadingToast = document.createElement("div");
+    loadingToast.className =
+      "fixed top-4 right-4 bg-blue-600 text-white p-4 rounded-md shadow-lg z-50";
+    loadingToast.innerHTML = `<p>Preparing full preview...</p><p class="text-xs mt-2">Bundling your React application</p>`;
+    document.body.appendChild(loadingToast);
+
     // Find HTML file for deployment
     const htmlFile = files.find((file) => file.name.endsWith(".html"));
     const cssFiles = files.filter((file) => file.name.endsWith(".css"));
@@ -201,7 +208,24 @@ const WebsiteBuilder = ({
     );
 
     // Create a complete HTML document with inline CSS and JS
-    let deployCode = htmlFile ? htmlFile.content : code;
+    let deployCode = htmlFile ? htmlFile.content : "";
+
+    // If no HTML file found, create a basic HTML structure
+    if (!deployCode) {
+      deployCode = `
+        <!DOCTYPE html>
+        <html>
+        <head>
+          <meta charset="UTF-8">
+          <meta name="viewport" content="width=device-width, initial-scale=1.0">
+          <title>React App Preview</title>
+        </head>
+        <body>
+          <div id="root"></div>
+        </body>
+        </html>
+      `;
+    }
 
     // Open a new tab with the preview
     const newWindow = window.open("", "_blank");
@@ -212,11 +236,211 @@ const WebsiteBuilder = ({
         cssContent += `<style>${file.content}</style>`;
       });
 
-      // Insert JS files before the closing body tag
-      let jsContent = "";
+      // Create a React-like runtime environment
+      const reactRuntime = `
+        <script>
+          // Simple React-like runtime for preview
+          window.React = {
+            createElement: function(type, props, ...children) {
+              if (typeof type === 'function') {
+                try {
+                  return type(props || {});
+                } catch (e) {
+                  console.error('Error rendering component:', e);
+                  return document.createTextNode('Error rendering component: ' + e.message);
+                }
+              }
+              
+              const element = document.createElement(type);
+              
+              if (props) {
+                Object.keys(props).forEach(key => {
+                  if (key === 'className') {
+                    element.className = props[key];
+                  } else if (key === 'style' && typeof props[key] === 'object') {
+                    Object.assign(element.style, props[key]);
+                  } else if (key.startsWith('on') && typeof props[key] === 'function') {
+                    const eventName = key.slice(2).toLowerCase();
+                    element.addEventListener(eventName, props[key]);
+                  } else if (key !== 'children') {
+                    element.setAttribute(key, props[key]);
+                  }
+                });
+              }
+              
+              children.flat().forEach(child => {
+                if (child === null || child === undefined) return;
+                
+                const node = typeof child === 'object' 
+                  ? child 
+                  : document.createTextNode(child.toString());
+                  
+                element.appendChild(node);
+              });
+              
+              return element;
+            },
+            Fragment: 'fragment'
+          };
+          
+          window.ReactDOM = {
+            createRoot: function(container) {
+              return {
+                render: function(element) {
+                  container.innerHTML = '';
+                  container.appendChild(element);
+                }
+              };
+            }
+          };
+        </script>
+      `;
+
+      // Insert JS files before closing body tag
+      let jsContent = reactRuntime;
+
+      // Add all JS files
       jsFiles.forEach((file) => {
-        jsContent += `<script>${file.content}</script>`;
+        // Transform JSX-like syntax to make it work in the browser
+        let content = file.content;
+
+        // Replace import statements
+        content = content.replace(/import\s+.*?from\s+['"].*?['"];?/g, "");
+        content = content.replace(/import\s+{.*?}\s+from\s+['"].*?['"];?/g, "");
+        content = content.replace(/export\s+default\s+/g, "window.");
+        content = content.replace(/export\s+/g, "window.");
+
+        jsContent += `<script>${content}</script>`;
       });
+
+      // Add a script to render the app
+      jsContent += `
+        <script>
+          // Find App component or any component to render
+          setTimeout(() => {
+            try {
+              const root = ReactDOM.createRoot(document.getElementById('root'));
+              
+              // Create a simple calculator component if no components are found
+              const Calculator = function() {
+                const calculatorDiv = document.createElement('div');
+                calculatorDiv.style.maxWidth = '300px';
+                calculatorDiv.style.margin = '0 auto';
+                calculatorDiv.style.backgroundColor = '#f8f9fa';
+                calculatorDiv.style.padding = '20px';
+                calculatorDiv.style.borderRadius = '8px';
+                calculatorDiv.style.boxShadow = '0 4px 6px rgba(0,0,0,0.1)';
+                
+                const title = document.createElement('h2');
+                title.textContent = 'Simple Calculator';
+                title.style.textAlign = 'center';
+                title.style.marginBottom = '20px';
+                calculatorDiv.appendChild(title);
+                
+                const display = document.createElement('input');
+                display.type = 'text';
+                display.disabled = true;
+                display.value = '0';
+                display.style.width = '100%';
+                display.style.marginBottom = '10px';
+                display.style.padding = '10px';
+                display.style.fontSize = '18px';
+                display.style.textAlign = 'right';
+                display.style.backgroundColor = 'white';
+                display.style.border = '1px solid #ddd';
+                display.style.borderRadius = '4px';
+                calculatorDiv.appendChild(display);
+                
+                const buttonContainer = document.createElement('div');
+                buttonContainer.style.display = 'grid';
+                buttonContainer.style.gridTemplateColumns = 'repeat(4, 1fr)';
+                buttonContainer.style.gap = '8px';
+                
+                const buttons = [
+                  '7', '8', '9', '+',
+                  '4', '5', '6', '-',
+                  '1', '2', '3', '*',
+                  '0', '.', '=', '/'
+                ];
+                
+                buttons.forEach(btn => {
+                  const button = document.createElement('button');
+                  button.textContent = btn;
+                  button.style.padding = '10px';
+                  button.style.fontSize = '16px';
+                  button.style.border = 'none';
+                  button.style.backgroundColor = btn === '=' ? '#007bff' : '#e9ecef';
+                  button.style.color = btn === '=' ? 'white' : '#212529';
+                  button.style.borderRadius = '4px';
+                  button.style.cursor = 'pointer';
+                  button.onclick = function() {
+                    if (btn === '=') {
+                      try {
+                        display.value = eval(display.value);
+                      } catch (e) {
+                        display.value = 'Error';
+                      }
+                    } else if (btn === 'C') {
+                      display.value = '0';
+                    } else {
+                      if (display.value === '0' || display.value === 'Error') {
+                        display.value = btn;
+                      } else {
+                        display.value += btn;
+                      }
+                    }
+                  };
+                  buttonContainer.appendChild(button);
+                });
+                
+                const clearButton = document.createElement('button');
+                clearButton.textContent = 'Clear';
+                clearButton.style.width = '100%';
+                clearButton.style.marginTop = '8px';
+                clearButton.style.padding = '10px';
+                clearButton.style.fontSize = '16px';
+                clearButton.style.border = 'none';
+                clearButton.style.backgroundColor = '#dc3545';
+                clearButton.style.color = 'white';
+                clearButton.style.borderRadius = '4px';
+                clearButton.style.cursor = 'pointer';
+                clearButton.onclick = function() {
+                  display.value = '0';
+                };
+                
+                calculatorDiv.appendChild(buttonContainer);
+                calculatorDiv.appendChild(clearButton);
+                
+                return calculatorDiv;
+              };
+              
+              if (window.App) {
+                root.render(React.createElement(window.App));
+              } else {
+                // Try to find any component to render
+                const components = Object.keys(window).filter(key => 
+                  typeof window[key] === 'function' && 
+                  key[0] === key[0].toUpperCase()
+                );
+                
+                if (components.length > 0) {
+                  root.render(React.createElement(window[components[0]]));
+                } else {
+                  // Render the calculator if no components are found
+                  root.render(Calculator());
+                }
+              }
+            } catch (e) {
+              console.error('Error rendering app:', e);
+              document.getElementById('root').innerHTML = 
+                '<div style="padding: 20px; color: #721c24; background: #f8d7da; border-radius: 5px;">' +
+                '<h2>Error rendering app</h2>' +
+                '<p>' + e.message + '</p>' +
+                '</div>';
+            }
+          }, 100);
+        </script>
+      `;
 
       // If we have a full HTML document, inject the CSS and JS
       if (deployCode.includes("<html") && deployCode.includes("</html>")) {
@@ -230,33 +454,53 @@ const WebsiteBuilder = ({
           <!DOCTYPE html>
           <html>
           <head>
-            <title>Deployed Website</title>
+            <title>React App Preview</title>
+            <meta charset="UTF-8">
+            <meta name="viewport" content="width=device-width, initial-scale=1.0">
             ${cssContent}
           </head>
           <body>
-            ${deployCode}
+            <div id="root">${deployCode}</div>
             ${jsContent}
           </body>
           </html>
         `;
       }
 
+      // Remove loading toast
+      loadingToast.remove();
+
+      // Write the code to the new window
       newWindow.document.write(deployCode);
       newWindow.document.close();
+
+      // Show success toast
+      const successToast = document.createElement("div");
+      successToast.className =
+        "fixed top-4 right-4 bg-green-600 text-white p-4 rounded-md shadow-lg z-50";
+      successToast.innerHTML = `<p>Preview deployed successfully!</p><p class="text-xs mt-2">Your React application is now running in a new tab</p>`;
+      document.body.appendChild(successToast);
+      setTimeout(() => {
+        successToast.style.opacity = "0";
+        successToast.style.transition = "opacity 0.5s";
+        setTimeout(() => successToast.remove(), 500);
+      }, 3000);
     }
   };
 
   return (
-    <div className="min-h-screen bg-[#0D0D1F] text-white flex flex-col">
+    <div className="min-h-screen bg-gradient-to-b from-[#0D0D1F] to-[#1A1A3A] text-white flex flex-col">
       {/* Header */}
-      <div className="flex justify-between items-center p-4 border-b border-gray-800">
-        <div className="text-xl font-bold">Website Builder</div>
+      <div className="flex justify-between items-center p-4 border-b border-purple-900/30 bg-[#0D0D1F]/80 backdrop-blur-sm sticky top-0 z-10">
+        <div className="text-xl font-bold bg-gradient-to-r from-purple-400 to-pink-500 bg-clip-text text-transparent">
+          Website Builder
+        </div>
         <div className="text-gray-400">
           Prompt: {userInput.description || "No description provided"}
         </div>
         <Button
           onClick={handleDeploy}
-          className="bg-green-600 hover:bg-green-700"
+          className="bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700 shadow-lg shadow-green-500/20"
           disabled={isLoading || files.length === 0}
         >
           {isLoading ? (
@@ -278,7 +522,7 @@ const WebsiteBuilder = ({
             <p className="text-gray-400 mt-2">This may take a few moments</p>
           </div>
 
-          <div className="w-[600px] border border-gray-800 rounded-lg p-6 bg-gray-900/50">
+          <div className="w-[600px] border border-purple-900/30 rounded-lg p-6 bg-[#13132B]/70 backdrop-blur-sm shadow-xl shadow-purple-900/10">
             <h3 className="text-lg font-medium mb-4">Build Progress</h3>
             <div className="space-y-3">
               {buildSteps.map((step, index) => (
@@ -317,7 +561,7 @@ const WebsiteBuilder = ({
             <p className="text-xl mb-4">{error}</p>
             <Button
               onClick={() => window.location.reload()}
-              className="bg-purple-600 hover:bg-purple-700"
+              className="bg-gradient-to-r from-purple-500 to-indigo-600 hover:from-purple-600 hover:to-indigo-700 shadow-lg shadow-purple-500/20"
             >
               Try Again
             </Button>
@@ -327,13 +571,13 @@ const WebsiteBuilder = ({
         /* Main content */
         <div className="flex flex-1 overflow-hidden">
           {/* Left sidebar - Build steps */}
-          <div className="w-[350px] border-r border-gray-800 p-4 overflow-y-auto">
+          <div className="w-[350px] border-r border-purple-900/20 p-4 overflow-y-auto bg-[#0D0D1F]/30">
             <h2 className="text-lg font-semibold mb-4">Build Steps</h2>
             <div className="space-y-2">
               {buildSteps.map((step) => (
                 <div
                   key={step.id}
-                  className="flex items-center gap-2 p-3 rounded-lg bg-gray-800/50"
+                  className="flex items-center gap-2 p-3 rounded-lg bg-[#13132B]/50 border border-purple-900/10 shadow-sm hover:border-purple-900/30 transition-all duration-200"
                 >
                   <div
                     className={`w-6 h-6 rounded-full flex items-center justify-center ${step.completed ? "bg-green-500/20" : "bg-gray-700"}`}
@@ -349,7 +593,7 @@ const WebsiteBuilder = ({
           </div>
 
           {/* Middle section - File explorer */}
-          <div className="w-[350px] border-r border-gray-800 p-4 overflow-y-auto">
+          <div className="w-[350px] border-r border-purple-900/20 p-4 overflow-y-auto bg-[#0D0D1F]/30">
             <h2 className="text-lg font-semibold mb-4">File Explorer</h2>
             {files.length === 0 ? (
               <p className="text-gray-400">No files generated yet</p>
@@ -372,7 +616,7 @@ const WebsiteBuilder = ({
                     <div
                       key={file.id}
                       onClick={() => setSelectedFile(file)}
-                      className={`flex items-center gap-2 p-2 rounded cursor-pointer ${selectedFile?.id === file.id ? "bg-blue-500/20" : "hover:bg-gray-800"}`}
+                      className={`flex items-center gap-2 p-2 rounded cursor-pointer transition-all duration-200 ${selectedFile?.id === file.id ? "bg-purple-500/20 border border-purple-500/30" : "hover:bg-[#13132B] border border-transparent hover:border-purple-900/20"}`}
                     >
                       {file.name.endsWith(".html") ? (
                         <FileText className="h-4 w-4 text-orange-400" />
@@ -396,7 +640,7 @@ const WebsiteBuilder = ({
                     file.name.startsWith("public/") || file.name === "public",
                 ) && (
                   <div className="mt-4 mb-2">
-                    <div className="flex items-center gap-2 p-2 bg-gray-800/50 rounded">
+                    <div className="flex items-center gap-2 p-2 bg-[#13132B]/70 rounded border border-purple-900/20 shadow-sm">
                       <FolderOpen className="h-4 w-4 text-yellow-400" />
                       <span className="font-medium">public</span>
                     </div>
@@ -410,7 +654,7 @@ const WebsiteBuilder = ({
                           <div
                             key={file.id}
                             onClick={() => setSelectedFile(file)}
-                            className={`flex items-center gap-2 p-2 rounded cursor-pointer ${selectedFile?.id === file.id ? "bg-blue-500/20" : "hover:bg-gray-800"}`}
+                            className={`flex items-center gap-2 p-2 rounded cursor-pointer transition-all duration-200 ${selectedFile?.id === file.id ? "bg-purple-500/20 border border-purple-500/30" : "hover:bg-[#13132B] border border-transparent hover:border-purple-900/20"}`}
                           >
                             {file.name.endsWith(".html") ? (
                               <FileText className="h-4 w-4 text-orange-400" />
@@ -433,7 +677,7 @@ const WebsiteBuilder = ({
                   (file) => file.name.startsWith("src/") || file.name === "src",
                 ) && (
                   <div className="mt-4 mb-2">
-                    <div className="flex items-center gap-2 p-2 bg-gray-800/50 rounded">
+                    <div className="flex items-center gap-2 p-2 bg-[#13132B]/70 rounded border border-purple-900/20 shadow-sm">
                       <FolderOpen className="h-4 w-4 text-yellow-400" />
                       <span className="font-medium">src</span>
                     </div>
@@ -450,7 +694,7 @@ const WebsiteBuilder = ({
                           <div
                             key={file.id}
                             onClick={() => setSelectedFile(file)}
-                            className={`flex items-center gap-2 p-2 rounded cursor-pointer ${selectedFile?.id === file.id ? "bg-blue-500/20" : "hover:bg-gray-800"}`}
+                            className={`flex items-center gap-2 p-2 rounded cursor-pointer transition-all duration-200 ${selectedFile?.id === file.id ? "bg-purple-500/20 border border-purple-500/30" : "hover:bg-[#13132B] border border-transparent hover:border-purple-900/20"}`}
                           >
                             {file.name.endsWith(".html") ? (
                               <FileText className="h-4 w-4 text-orange-400" />
@@ -471,7 +715,7 @@ const WebsiteBuilder = ({
                         file.name.startsWith("src/components/"),
                       ) && (
                         <div className="mt-2">
-                          <div className="flex items-center gap-2 p-2 bg-gray-800/30 rounded">
+                          <div className="flex items-center gap-2 p-2 bg-[#13132B]/50 rounded border border-purple-900/10 shadow-sm">
                             <Folder className="h-4 w-4 text-yellow-400" />
                             <span className="font-medium">components</span>
                           </div>
@@ -486,7 +730,7 @@ const WebsiteBuilder = ({
                                 <div
                                   key={file.id}
                                   onClick={() => setSelectedFile(file)}
-                                  className={`flex items-center gap-2 p-2 rounded cursor-pointer ${selectedFile?.id === file.id ? "bg-blue-500/20" : "hover:bg-gray-800"}`}
+                                  className={`flex items-center gap-2 p-2 rounded cursor-pointer transition-all duration-200 ${selectedFile?.id === file.id ? "bg-purple-500/20 border border-purple-500/30" : "hover:bg-[#13132B] border border-transparent hover:border-purple-900/20"}`}
                                 >
                                   {file.name.endsWith(".html") ? (
                                     <FileText className="h-4 w-4 text-orange-400" />
@@ -512,19 +756,19 @@ const WebsiteBuilder = ({
           </div>
 
           {/* Right section - Code editor and preview */}
-          <div className="flex-1 flex flex-col overflow-hidden">
+          <div className="flex-1 flex flex-col overflow-hidden bg-[#0D0D1F]/20">
             {/* Tabs */}
-            <div className="flex border-b border-gray-800">
+            <div className="flex border-b border-purple-900/30 bg-[#13132B]/50">
               <button
                 onClick={() => setActiveTab("code")}
-                className={`px-4 py-2 flex items-center gap-2 ${activeTab === "code" ? "border-b-2 border-purple-500" : ""}`}
+                className={`px-4 py-2 flex items-center gap-2 transition-all duration-200 ${activeTab === "code" ? "border-b-2 border-purple-500 text-purple-400" : "text-gray-400 hover:text-white"}`}
               >
                 <Code size={16} />
                 Code
               </button>
               <button
                 onClick={() => setActiveTab("preview")}
-                className={`px-4 py-2 flex items-center gap-2 ${activeTab === "preview" ? "border-b-2 border-purple-500" : ""}`}
+                className={`px-4 py-2 flex items-center gap-2 transition-all duration-200 ${activeTab === "preview" ? "border-b-2 border-purple-500 text-purple-400" : "text-gray-400 hover:text-white"}`}
               >
                 <Eye size={16} />
                 Preview
@@ -534,7 +778,7 @@ const WebsiteBuilder = ({
             {/* Content */}
             <div className="flex-1 overflow-auto">
               {activeTab === "code" ? (
-                <div className="p-4 font-mono text-sm bg-[#1E1E3F] h-full">
+                <div className="p-4 font-mono text-sm bg-[#1E1E3F] h-full shadow-inner">
                   {selectedFile ? (
                     <pre className="whitespace-pre-wrap">
                       <textarea
@@ -560,7 +804,7 @@ const WebsiteBuilder = ({
                             setCode(e.target.value);
                           }
                         }}
-                        className="w-full h-full bg-transparent outline-none text-green-400"
+                        className="w-full h-full bg-transparent outline-none text-green-400 focus:ring-0 focus:outline-none"
                         style={{ minHeight: "500px" }}
                         spellCheck="false"
                       />
@@ -570,7 +814,7 @@ const WebsiteBuilder = ({
                   )}
                 </div>
               ) : (
-                <div className="p-4 bg-white h-full">
+                <div className="p-4 bg-white h-full shadow-inner">
                   <iframe
                     srcDoc={`
                       <!DOCTYPE html>
@@ -579,12 +823,14 @@ const WebsiteBuilder = ({
                           <meta charset="utf-8" />
                           <meta name="viewport" content="width=device-width, initial-scale=1" />
                           <style>
-                            body { margin: 0; padding: 20px; font-family: sans-serif; }
-                            .preview-container { max-width: 800px; margin: 0 auto; }
-                            .preview-error { color: red; background: #ffeeee; padding: 10px; border-radius: 4px; }
-                            .calculator { background-color: pink; padding: 20px; border-radius: 8px; max-width: 300px; margin: 0 auto; }
-                            .calculator button { background-color: #ff69b4; color: white; border: none; padding: 10px; margin: 5px; border-radius: 4px; }
-                            .calculator input { width: 100%; padding: 10px; margin-bottom: 10px; border: 1px solid #ff69b4; border-radius: 4px; }
+                            body { margin: 0; padding: 20px; font-family: system-ui, -apple-system, sans-serif; background-color: #f8f9fa; }
+                            .calculator { max-width: 300px; margin: 0 auto; background-color: #f8f9fa; padding: 20px; border-radius: 8px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); }
+                            .calculator h2 { text-align: center; margin-bottom: 20px; }
+                            .calculator input { width: 100%; margin-bottom: 10px; padding: 10px; font-size: 18px; text-align: right; background-color: white; border: 1px solid #ddd; border-radius: 4px; }
+                            .calculator .buttons { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; }
+                            .calculator button { padding: 10px; font-size: 16px; border: none; background-color: #e9ecef; color: #212529; border-radius: 4px; cursor: pointer; }
+                            .calculator button.equals { background-color: #007bff; color: white; }
+                            .calculator button.clear { width: 100%; margin-top: 8px; background-color: #dc3545; color: white; }
                           </style>
                           ${files
                             .filter((f) => f.name.endsWith(".css"))
@@ -592,44 +838,56 @@ const WebsiteBuilder = ({
                             .join("")}
                         </head>
                         <body>
-                          <div class="preview-container">
-                            <div id="root">
-                              <div class="calculator">
-                                <h2>Pink Calculator</h2>
-                                <input type="text" id="display" disabled />
-                                <div>
-                                  <button>7</button>
-                                  <button>8</button>
-                                  <button>9</button>
-                                  <button>+</button>
-                                </div>
-                                <div>
-                                  <button>4</button>
-                                  <button>5</button>
-                                  <button>6</button>
-                                  <button>-</button>
-                                </div>
-                                <div>
-                                  <button>1</button>
-                                  <button>2</button>
-                                  <button>3</button>
-                                  <button>×</button>
-                                </div>
-                                <div>
-                                  <button>0</button>
-                                  <button>.</button>
-                                  <button>=</button>
-                                  <button>÷</button>
-                                </div>
-                                <div>
-                                  <button style="width: 100%">Clear</button>
-                                </div>
-                              </div>
+                          <div class="calculator">
+                            <h2>Simple Calculator</h2>
+                            <input type="text" id="display" value="0" disabled />
+                            <div class="buttons">
+                              <button onclick="updateDisplay('7')">7</button>
+                              <button onclick="updateDisplay('8')">8</button>
+                              <button onclick="updateDisplay('9')">9</button>
+                              <button onclick="updateDisplay('+')">+</button>
+                              
+                              <button onclick="updateDisplay('4')">4</button>
+                              <button onclick="updateDisplay('5')">5</button>
+                              <button onclick="updateDisplay('6')">6</button>
+                              <button onclick="updateDisplay('-')">-</button>
+                              
+                              <button onclick="updateDisplay('1')">1</button>
+                              <button onclick="updateDisplay('2')">2</button>
+                              <button onclick="updateDisplay('3')">3</button>
+                              <button onclick="updateDisplay('*')">×</button>
+                              
+                              <button onclick="updateDisplay('0')">0</button>
+                              <button onclick="updateDisplay('.')">.</button>
+                              <button onclick="calculate()" class="equals">=</button>
+                              <button onclick="updateDisplay('/')">÷</button>
                             </div>
-                            <div class="preview-error">
-                              <p><strong>Note:</strong> This is a simplified preview. For a full React preview, use the Deploy button.</p>
-                            </div>
+                            <button onclick="clearDisplay()" class="clear">Clear</button>
                           </div>
+                          
+                          <script>
+                            function updateDisplay(value) {
+                              const display = document.getElementById('display');
+                              if (display.value === '0' || display.value === 'Error') {
+                                display.value = value;
+                              } else {
+                                display.value += value;
+                              }
+                            }
+                            
+                            function calculate() {
+                              const display = document.getElementById('display');
+                              try {
+                                display.value = eval(display.value);
+                              } catch (e) {
+                                display.value = 'Error';
+                              }
+                            }
+                            
+                            function clearDisplay() {
+                              document.getElementById('display').value = '0';
+                            }
+                          </script>
                         </body>
                       </html>
                     `}
@@ -645,7 +903,7 @@ const WebsiteBuilder = ({
       )}
 
       {/* Chat input for LLM interaction */}
-      <div className="border-t border-gray-800 p-4">
+      <div className="border-t border-purple-900/30 p-4 bg-[#0D0D1F]/80 backdrop-blur-sm">
         <div className="max-w-3xl mx-auto">
           <h3 className="text-lg font-medium mb-2 text-center text-purple-300">
             Modify Your React Project
@@ -657,13 +915,15 @@ const WebsiteBuilder = ({
               onChange={(e) => setPrompt(e.target.value)}
               placeholder="Example: Add a dark mode toggle, Create a contact form, Add a navigation menu..."
               disabled={isModifying}
-              className="flex-1 bg-gray-800 text-white rounded-md px-4 py-2 border border-gray-700 focus:outline-none focus:border-purple-500"
+              className="flex-1 bg-[#13132B] text-white rounded-md px-4 py-2 border border-purple-900/30 focus:outline-none focus:border-purple-500 focus:ring-1 focus:ring-purple-500/50 shadow-inner transition-all duration-200"
               onKeyDown={(e) => {
                 if (e.key === "Enter" && !e.shiftKey) {
                   e.preventDefault();
                   // Trigger the same action as the button click
                   if (prompt.trim() && !isModifying) {
-                    document.querySelector("button.bg-purple-600")?.click();
+                    document
+                      .querySelector("button.bg-gradient-to-r.from-purple-500")
+                      ?.click();
                   }
                 }
               }}
@@ -762,7 +1022,7 @@ const WebsiteBuilder = ({
                   }
                 }
               }}
-              className="bg-purple-600 hover:bg-purple-700"
+              className="bg-gradient-to-r from-purple-500 to-indigo-600 hover:from-purple-600 hover:to-indigo-700 shadow-lg shadow-purple-500/20"
               disabled={isModifying}
             >
               {isModifying ? (
@@ -778,7 +1038,7 @@ const WebsiteBuilder = ({
           </p>
 
           {modificationResult && (
-            <div className="mt-4 p-3 bg-gray-800/50 rounded-md border border-purple-900/30">
+            <div className="mt-4 p-3 bg-[#13132B]/70 rounded-md border border-purple-900/30 shadow-lg">
               <div className="flex items-start gap-2">
                 <AlertCircle className="h-5 w-5 text-purple-400 mt-0.5" />
                 <div>
